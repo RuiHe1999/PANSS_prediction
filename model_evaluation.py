@@ -7,7 +7,7 @@ import pandas as pd
 from collections import Counter
 from tqdm import tqdm
 
-from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 from sklearn.model_selection import train_test_split, KFold, learning_curve
 
 import seaborn as sns
@@ -90,6 +90,17 @@ def safe_rmse(gold, pred):
         return np.nan
     
     return np.sqrt(mean_squared_error(gold[mask], pred[mask]))
+
+def safe_mae(gold, pred):
+    gold = np.array(gold)
+    pred = np.array(pred)
+
+    mask = ~np.isnan(gold) & ~np.isnan(pred)
+
+    if not np.any(mask):
+        return np.nan
+
+    return mean_absolute_error(gold[mask], pred[mask])
 
 def split_data(data):
     
@@ -255,7 +266,7 @@ for symp in tqdm(symptoms):
     best_models = pd.read_csv('results/model_comparison/best_model.csv')
 
     # training results
-    _, model_name, feat_name, train_rmse, val_rmse, test_rmse, param, _, _ = best_models[best_models['symptom']==symp].values[0]
+    model_name, feat_name, _, train_rmse, val_rmse, test_rmse, param, _, _ = best_models[best_models['symptom']==symp].values[0]
     param = eval(param)
 
     # train and test df
@@ -423,6 +434,7 @@ for symp in symptoms:
     y_pred = test_scores[f'Pred_{symp}']
 
     info['test_rmse_seg'] = safe_rmse(y_true, y_pred)
+    info['test_mae_seg'] = safe_mae(y_true, y_pred)
     info['test_r2_seg'] = r2_score(y_true, y_pred)
 
     # evaluate the model at the participant level 
@@ -430,6 +442,7 @@ for symp in symptoms:
     y_pred = par_scores[f'Pred_{symp}']
 
     info['test_rmse_par'] = safe_rmse(y_true, y_pred)
+    info['test_mae_par'] = safe_mae(y_true, y_pred)
     info['test_r2_par'] = r2_score(y_true, y_pred)
 
     # 4. model evaluation per language
@@ -438,18 +451,25 @@ for symp in symptoms:
         seg_pred_lang = test_scores[test_scores['language_code']==lang][f'Pred_{symp}']
         if y_true.empty or y_pred.empty:
             info[f'{lang}_rmse_seg'] = np.nan
+            info[f'{lang}_mae_seg'] = np.nan
         else:
             rmse = safe_rmse(seg_true_lang, seg_pred_lang)
             info[f'{lang}_rmse_seg'] = rmse
+            
+            mae = safe_mae(seg_true_lang, seg_pred_lang)
+            info[f'{lang}_mae_seg'] = mae
             
     for lang in langs:
         par_true_lang = par_scores[par_scores['language_code']==lang][f'PANSS_{symp}']
         par_pred_lang = par_scores[par_scores['language_code']==lang][f'Pred_{symp}']
         if y_true.empty or y_pred.empty:
             info[f'{lang}_rmse_par'] = np.nan
+            info[f'{lang}_mae_par'] = np.nan
         else:
             rmse = safe_rmse(par_true_lang, par_pred_lang)
             info[f'{lang}_rmse_par'] = rmse
+            mae = safe_mae(seg_true_lang, seg_pred_lang)
+            info[f'{lang}_mae_par'] = mae
     
     infos.append(info)
 

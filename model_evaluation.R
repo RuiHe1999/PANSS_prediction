@@ -73,7 +73,6 @@ plot_df$Item <- factor(plot_df$Item, levels = items)
 
 age_p <- ggplot(plot_df, aes(x = Age, y = AE)) +
   geom_point(color = "#3182bd", alpha = 0.7, size = 1.8) +
-  geom_smooth(method = "lm", se = FALSE, color = "#f08787", linewidth = 1.2) +
   facet_wrap(~ title, scales = "free_y") +
   labs(x = "Age", y = "Absolute Error (AE)",
        # title = "Correlations between prediction errors and age"
@@ -141,7 +140,6 @@ plot_df$Item <- factor(plot_df$Item, levels = items)
 
 edu_p <- ggplot(plot_df, aes(x = Edu, y = AE)) +
   geom_point(color = "#3182bd", alpha = 0.7, size = 1.8) +
-  geom_smooth(method = "lm", se = FALSE, color = "#f08787", linewidth = 1.2) +
   facet_wrap(~ title, scales = "free_y") +
   labs(x = "Education", y = "Absolute Error (AE)",
        # title = "Correlations between prediction errors and education"
@@ -221,7 +219,6 @@ plot_df$Item <- factor(plot_df$Item, levels = items)
 
 sev_p <- ggplot(plot_df, aes(x = severity, y = AE)) +
   geom_point(color = "#3182bd", alpha = 0.7, size = 1.8) +
-  geom_smooth(method = "lm", se = FALSE, color = "#f08787", linewidth = 1.2) +
   facet_wrap(~ title, scales = "free_y") +
   labs(x = "Severity (PANSS score)", y = "Absolute Error (AE)",
        # title = "Correlations between prediction errors and severity"
@@ -399,8 +396,56 @@ print(task_p)
 ggsave("results/model_eval/bias_check/task.svg", task_p, width = 9, height = 9)
 ggsave("results/Figure_3/task.svg", task_p, width = 9, height = 9)
 
+# ==== true vs predicted (participant level) ====
+par_scores_list <- map(items, function(it){
+  df <- read_csv(file.path("results/model_eval/par_predicts", paste0(it, ".csv")),
+                 show_col_types = FALSE)
+  df$Item <- it
+  df
+})
+names(par_scores_list) <- items
+
+tp_df <- bind_rows(lapply(items, function(it){
+  df <- par_scores_list[[it]]
+  tibble(
+    Item = it,
+    True = df[[paste0("PANSS_", it)]],
+    Pred = df[[paste0("Pred_", it)]]
+  )
+})) %>%
+  filter(is.finite(True), is.finite(Pred)) %>%
+  mutate(Item = factor(Item, levels = items))
+
+tp_df <- tp_df %>%
+  mutate(high = Pred >= 3.5)
 
 
+tp_p <- ggplot(tp_df, aes(x = True, y = Pred)) +
+  geom_jitter(
+    width = 0.10, height = 0.08,
+    shape = 16, size = 2.6,
+    color = "#5DA5DA", alpha = 0.80
+  ) +
+  facet_wrap(~ Item, ncol = 3) +
+  scale_x_continuous(limits = c(0.8, 7.2), breaks = 1:7) +
+  scale_y_continuous(limits = c(1, 5), breaks = 1:5) +
+  labs(
+    x = "True PANSS score",
+    y = "Predicted PANSS score"
+  ) +
+  theme_classic(base_size = 18) +
+  theme(
+    strip.background = element_blank(),
+    strip.text = element_text(face = "bold", size = 15),
+    axis.title = element_text(size = 20),
+    axis.text = element_text(size = 12, color = "black"),
+    panel.spacing = unit(1.2, "lines")
+  )
+
+print(tp_p)
+
+ggsave("results/model_eval/bias_check/true_vs_predicted.svg", tp_p, width = 9, height = 9)
+ggsave("results/Figure_3/true_vs_predicted.svg", tp_p, width = 9, height = 9)
 
 
 
